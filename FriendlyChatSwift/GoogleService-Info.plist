@@ -7,9 +7,9 @@
 	<key>AD_UNIT_ID_FOR_INTERSTITIAL_TEST</key>
 	<string>ca-app-pub-3940256099942544/4411468910</string>
 	<key>CLIENT_ID</key>
-	<string>283830532119-0q9gk80nee7563m9lou03erjo2n59ctq.apps.googleusercontent.com</string>
+	<string>283830532119-515tulrobdtrh9gbqonpq6pusfco9biv.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.283830532119-0q9gk80nee7563m9lou03erjo2n59ctq</string>
+	<string>com.googleusercontent.apps.283830532119-515tulrobdtrh9gbqonpq6pusfco9biv</string>
 	<key>API_KEY</key>
 	<string>AIzaSyDV1PaGl1ZIi6Gsqd66ElTs8zGaURFxEB4</string>
 	<key>GCM_SENDER_ID</key>
@@ -17,7 +17,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.kromah.BV</string>
+	<string>com.kromah.BlackValleyChatApp</string>
 	<key>PROJECT_ID</key>
 	<string>bv-chat-10fd4</string>
 	<key>STORAGE_BUCKET</key>
@@ -33,7 +33,7 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true/>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:283830532119:ios:cd3baa38c4ac017b</string>
+	<string>1:283830532119:ios:6c664ff95c7e2173</string>
 	<key>DATABASE_URL</key>
 	<string>https://bv-chat-10fd4.firebaseio.com</string>
 </dict>
