@@ -7,10 +7,13 @@ import Firebase
 
 
 @objc(FCViewController)
-class FCViewController: UIViewController, UITableViewDataSource, UITableViewDelegate,
-    UITextFieldDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate,MenuTransitionManagerDelegate {
+class FCViewController: UIViewController,
+    UITextFieldDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
   // Instance variables
+    
+    @IBOutlet weak var tableView: UITableView!
+    
   @IBOutlet weak var textField: UITextField!
   @IBOutlet weak var sendButton: UIButton!
   var ref: FIRDatabaseReference!
@@ -25,7 +28,6 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
   @IBOutlet weak var clientTable: UITableView!
 
     
-    let menuTransitionManager = MenuTransitionManager()
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -41,27 +43,19 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
     logViewLoaded()
     
     textField.delegate = self
+    tableView.delegate = self
+    
+    //rotate the tableView upside down so that messages appear from bottom-top, not top-bottom
+    tableView.transform = CGAffineTransform(rotationAngle: CGFloat(-M_PI))
+    
+    //makes it so that row height is dynamic for each cell, which wraps around the text.
+    tableView.rowHeight = UITableViewAutomaticDimension
+    tableView.estimatedRowHeight = 60
     
     // for tapping
     self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(FCViewController.dismissKeyboard)))
     
   }
-    
-    
-    
-    
-    
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        let menuTableViewController = segue.destination as! MenuTableViewController
-        menuTableViewController.transitioningDelegate = menuTransitionManager
-        menuTransitionManager.delegate = self
-    }
-    
-    @IBAction func unwindToHome(_ segue:UIStoryboardSegue){
-        let sourceController = segue.source as! MenuTableViewController
-        
-        self.title = sourceController.currentItem
-    }
     
     
     func dismiss() {
@@ -94,7 +88,16 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
             
             self.clientTable.insertRows(at: row, with: .automatic)
         })
+        
+//        reload table asychronoulsy
+//        DispatchQueue.main.async {
+//            UIView.animate(withDuration: 0.1){
+//                self.tableView.reloadData()
+//            }
+//        }
+        
     }
+    
     
 
 
@@ -167,50 +170,14 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
     return newLength <= self.msglength.intValue // Bool
   }
 
-  // UITableViewDataSource protocol methods
-  func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-    return messages.count
-  }
-
-  func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    // Dequeue cell
-    let cell: UITableViewCell! = self.clientTable .dequeueReusableCell(withIdentifier: "tableViewCell", for: indexPath)
-    
-    cell.textLabel?.numberOfLines=0
-    cell.textLabel?.lineBreakMode = NSLineBreakMode.byWordWrapping
-    
-    // Unpack message from Firebase DataSnapshot
-    let messageSnapshot: FIRDataSnapshot! = self.messages[indexPath.row]
-    let message = messageSnapshot.value as! Dictionary<String, String>
-    let name = message[Constants.MessageFields.name] as String!
-    if let imageUrl = message[Constants.MessageFields.imageUrl] {
-        if imageUrl.hasPrefix("gs://") {
-            FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
-                if let error = error {
-                    print("Error downloading: \(error)")
-                    return
-                }
-                cell.imageView?.image = UIImage.init(data: data!)
-            }
-        } else if let url = NSURL(string:imageUrl), let data = NSData(contentsOf: url as URL) {
-            cell.imageView?.image = UIImage.init(data: data as Data)
-        }
-        cell!.textLabel?.text = "sent by: \(name)"
-    } else {
-        let text = message[Constants.MessageFields.text] as String!
-        cell!.textLabel?.text = name! + ": " + text!
-        cell!.imageView?.image = UIImage(named: "ic_account_circle")
-        if let photoUrl = message[Constants.MessageFields.photoUrl], let url = NSURL(string:photoUrl), let data = NSData(contentsOf: url as URL) {
-            cell!.imageView?.image = UIImage(data: data as Data)
-        }
-    }
-    return cell!
-  }
-
   // UITextViewDelegate protocol methods
   func textFieldShouldReturn(_ textField: UITextField) -> Bool {
     let data = [Constants.MessageFields.text: textField.text! as String]
     sendMessage(data)
+    
+    DispatchQueue.main.async {
+        self.tableView.reloadData()
+    }
     return true
   }
     
@@ -224,6 +191,9 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
     }
     // Push data to Firebase Database
     self.ref.child("messages").childByAutoId().setValue(mdata)
+    
+  
+    
   }
 
   // MARK: - Image Picker
@@ -303,5 +273,55 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
         }
     }
    
+
+}
+
+extension FCViewController: UITableViewDataSource, UITableViewDelegate{
+    
+    // UITableViewDataSource protocol methods
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return messages.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        // Dequeue cell
+        let cell: UITableViewCell! = self.clientTable .dequeueReusableCell(withIdentifier: "tableViewCell", for: indexPath)
+        
+        cell.textLabel?.numberOfLines=0
+        cell.textLabel?.lineBreakMode = NSLineBreakMode.byWordWrapping
+        
+        // Reverse unpack message from Firebase DataSnapshot
+        let messageSnapshot: FIRDataSnapshot! = self.messages[messages.count - 1 - indexPath.row]
+        
+        let message = messageSnapshot.value as! Dictionary<String, String>
+        let name = message[Constants.MessageFields.name] as String!
+        
+        if let imageUrl = message[Constants.MessageFields.imageUrl] {
+            if imageUrl.hasPrefix("gs://") {
+                FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
+                    if let error = error {
+                        print("Error downloading: \(error)")
+                        return
+                    }
+                    cell.imageView?.image = UIImage.init(data: data!)
+                }
+            } else if let url = NSURL(string:imageUrl), let data = NSData(contentsOf: url as URL) {
+                cell.imageView?.image = UIImage.init(data: data as Data)
+            }
+            cell!.textLabel?.text = "sent by: \(name)"
+        } else {
+            let text = message[Constants.MessageFields.text] as String!
+            cell!.textLabel?.text = name! + ": " + text!
+            cell!.imageView?.image = UIImage(named: "ic_account_circle")
+            if let photoUrl = message[Constants.MessageFields.photoUrl], let url = NSURL(string:photoUrl), let data = NSData(contentsOf: url as URL) {
+                cell!.imageView?.image = UIImage(data: data as Data)
+            }
+        }
+        
+        //since tableView is rotated, cell has to be rotated to be upright.
+        cell.transform = CGAffineTransform(rotationAngle: CGFloat(M_PI))
+        
+        return cell!
+    }
 
 }

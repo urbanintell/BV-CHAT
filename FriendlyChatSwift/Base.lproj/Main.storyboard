@@ -191,6 +191,7 @@
                     <connections>
                         <outlet property="clientTable" destination="DHD-HU-kCB" id="VEb-Fb-vE0"/>
                         <outlet property="sendButton" destination="wv1-bL-LxQ" id="NjU-mG-4FR"/>
+                        <outlet property="tableView" destination="DHD-HU-kCB" id="KWH-re-z1e"/>
                         <outlet property="textField" destination="STK-FK-gn5" id="NHK-Z3-xOt"/>
                     </connections>
                 </viewController>
