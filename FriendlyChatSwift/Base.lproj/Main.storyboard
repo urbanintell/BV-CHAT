@@ -191,11 +191,16 @@
                     <connections>
                         <outlet property="clientTable" destination="DHD-HU-kCB" id="VEb-Fb-vE0"/>
                         <outlet property="sendButton" destination="wv1-bL-LxQ" id="NjU-mG-4FR"/>
+                        <outlet property="spinner" destination="DXY-6v-mhZ" id="iFX-El-6fp"/>
                         <outlet property="tableView" destination="DHD-HU-kCB" id="KWH-re-z1e"/>
                         <outlet property="textField" destination="STK-FK-gn5" id="NHK-Z3-xOt"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dLT-eE-jeg" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                <activityIndicatorView opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" style="gray" id="DXY-6v-mhZ">
+                    <rect key="frame" x="0.0" y="0.0" width="20" height="20"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                </activityIndicatorView>
             </objects>
             <point key="canvasLocation" x="740" y="-284"/>
         </scene>

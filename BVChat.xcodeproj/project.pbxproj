@@ -93,7 +93,6 @@
 			isa = PBXGroup;
 			children = (
 				B28E9E4A1D9B786A006AA3C7 /* Controllers */,
-				5F5A537D1ADE67D500F81DF0 /* AppDelegate.swift */,
 				2CA807BB1B21702E009AD7F2 /* MeasurementHelper.swift */,
 				B26444531D9B986A00BBAD65 /* Firebase */,
 				5F5A537B1ADE67D500F81DF0 /* Supporting Files */,
@@ -106,6 +105,7 @@
 			children = (
 				B2250DB41D9532B100C5D344 /* GoogleService-Info.plist */,
 				107960711C612531003DB6CC /* Main.storyboard */,
+				5F5A537D1ADE67D500F81DF0 /* AppDelegate.swift */,
 				107960741C61253B003DB6CC /* Info.plist */,
 			);
 			name = "Supporting Files";

@@ -11,6 +11,8 @@ class SignInViewController: UIViewController {
     
     @IBOutlet weak var logo: UIImageView!
     
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         self.logo.alpha = 0.0

@@ -8,12 +8,11 @@ import Firebase
 
 @objc(FCViewController)
 class FCViewController: UIViewController,
-    UITextFieldDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    UITextFieldDelegate, UINavigationControllerDelegate {
 
   // Instance variables
-    
-    @IBOutlet weak var tableView: UITableView!
-    
+  @IBOutlet var spinner: UIActivityIndicatorView!
+  @IBOutlet weak var tableView: UITableView!
   @IBOutlet weak var textField: UITextField!
   @IBOutlet weak var sendButton: UIButton!
   var ref: FIRDatabaseReference!
@@ -27,8 +26,6 @@ class FCViewController: UIViewController,
   @IBOutlet weak var banner: GADBannerView!
   @IBOutlet weak var clientTable: UITableView!
 
-    
-
   override func viewDidLoad() {
     super.viewDidLoad()
 
@@ -37,11 +34,6 @@ class FCViewController: UIViewController,
     configureDatabase()
     configureStorage()
     configureRemoteConfig()
-    fetchConfig()
- 
-
-    logViewLoaded()
-    
     textField.delegate = self
     tableView.delegate = self
     
@@ -56,7 +48,6 @@ class FCViewController: UIViewController,
     self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(FCViewController.dismissKeyboard)))
     
   }
-    
     
     func dismiss() {
         self.dismiss(animated: true, completion: nil)
@@ -79,28 +70,19 @@ class FCViewController: UIViewController,
     
     
     func configureDatabase() {
-        ref = FIRDatabase.database().reference()
+        
+        self.ref = FIRDatabase.database().reference()
         // Listen for new messages in the Firebase database
-        _refHandle = self.ref.child("messages").observe(.childAdded, with: { (snapshot) -> Void in
+        self._refHandle = self.ref.child("messages").observe(.childAdded, with: { (snapshot) -> Void in
             self.messages.append(snapshot)
             
             let row = [IndexPath(row: self.messages.count-1, section: 0) ]
             
             self.clientTable.insertRows(at: row, with: .automatic)
         })
-        
-//        reload table asychronoulsy
-//        DispatchQueue.main.async {
-//            UIView.animate(withDuration: 0.1){
-//                self.tableView.reloadData()
-//            }
-//        }
-        
+    
     }
     
-    
-
-
     func configureStorage() {
         storageRef = FIRStorage.storage().reference(forURL: "gs://bv-chat-10fd4.appspot.com")
     }
@@ -115,53 +97,12 @@ class FCViewController: UIViewController,
     remoteConfig.configSettings = remoteConfigSettings!
   }
 
-  func fetchConfig() {
-    var expirationDuration: Double = 3600
-    // If in developer mode cacheExpiration is set to 0 so each fetch will retrieve values from
-    // the server.
-    if (self.remoteConfig.configSettings.isDeveloperModeEnabled) {
-        expirationDuration = 0
-    }
-    
-    // cacheExpirationSeconds is set to cacheExpiration here, indicating that any previously
-    // fetched and cached config would be considered expired because it would have been fetched
-    // more than cacheExpiration seconds ago. Thus the next fetch would go to the server unless
-    // throttling is in progress. The default expiration duration is 43200 (12 hours).
-    remoteConfig.fetch(withExpirationDuration: expirationDuration) { (status, error) in
-        if (status == .success) {
-            print("Config fetched!")
-            self.remoteConfig.activateFetched()
-            let friendlyMsgLength = self.remoteConfig["friendly_msg_length"]
-            if (friendlyMsgLength.source != .static) {
-                self.msglength = friendlyMsgLength.numberValue!
-                print("Friendly msg length config: \(self.msglength)")
-            }
-        } else {
-            print("Config not fetched")
-            print("Error \(error)")
-        }
-    }
-  }
-
-  @IBAction func didPressFreshConfig(_ sender: AnyObject) {
-     FIRCrashMessage("Cause Crash button clicked")
-  }
-
   @IBAction func didSendMessage(_ sender: UIButton) {
     textFieldShouldReturn(textField)
     
     textField.text = ""
   }
 
-  @IBAction func didPressCrash(_ sender: AnyObject) {
-    fatalError()
-  }
-
-  func logViewLoaded() {
-     FIRCrashMessage("View loaded")
-  }
-
- 
 
   @objc(textField:shouldChangeCharactersInRange:replacementString:) func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
     guard let text = textField.text else { return true }
@@ -181,8 +122,6 @@ class FCViewController: UIViewController,
     return true
   }
     
-    
-
   func sendMessage(_ data: [String: String]) {
     var mdata = data
     mdata[Constants.MessageFields.name] = AppState.sharedInstance.displayName
@@ -191,8 +130,6 @@ class FCViewController: UIViewController,
     }
     // Push data to Firebase Database
     self.ref.child("messages").childByAutoId().setValue(mdata)
-    
-  
     
   }
 
@@ -210,57 +147,7 @@ class FCViewController: UIViewController,
     present(picker, animated: true, completion:nil)
   }
 
-    func imagePickerController(picker: UIImagePickerController,
-                               didFinishPickingMediaWithInfo info: [String : AnyObject]) {
-        picker.dismiss(animated: true, completion:nil)
-        
-        // if it's a photo from the library, not an image from the camera
-        if #available(iOS 8.0, *), let referenceUrl = info[UIImagePickerControllerReferenceURL] {
-            let assets = PHAsset.fetchAssets(withALAssetURLs: [(referenceUrl as! NSURL) as URL], options: nil)
-            let asset = assets.firstObject
-            asset?.requestContentEditingInput(with: nil, completionHandler: { (contentEditingInput, info) in
-                let imageFile = contentEditingInput?.fullSizeImageURL
-                let filePath = "\(FIRAuth.auth()?.currentUser?.uid)/\(Int(NSDate.timeIntervalSinceReferenceDate * 1000))/\(referenceUrl.lastPathComponent!)"
-                self.storageRef.child(filePath)
-                    .putFile(imageFile!, metadata: nil) { (metadata, error) in
-                        if let error = error {
-                            print("Error uploading: \(error.localizedDescription)")
-                            return
-                        }
-                        self.sendMessage([Constants.MessageFields.imageUrl: self.storageRef.child((metadata?.path)!).description])
-                }
-            })
-        } else {
-            let image = info[UIImagePickerControllerOriginalImage] as! UIImage
-            let imageData = UIImageJPEGRepresentation(image, 0.8)
-            let imagePath = FIRAuth.auth()!.currentUser!.uid +
-            "/\(Int(NSDate.timeIntervalSinceReferenceDate * 1000)).jpg"
-            let metadata = FIRStorageMetadata()
-            metadata.contentType = "image/jpeg"
-            self.storageRef.child(imagePath)
-                .put(imageData!, metadata: metadata) { (metadata, error) in
-                    if let error = error {
-                        print("Error uploading: \(error)")
-                        return
-                    }
-                    self.sendMessage([Constants.MessageFields.imageUrl: self.storageRef.child((metadata?.path)!).description])
-            }
-        }
-    }
 
-  func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-    picker.dismiss(animated: true, completion:nil)
-  }
-
-  func showAlert(_ title:String, message:String) {
-    DispatchQueue.main.async {
-        let alert = UIAlertController(title: title,
-            message: message, preferredStyle: .alert)
-        let dismissAction = UIAlertAction(title: "Dismiss", style: .destructive, handler: nil)
-        alert.addAction(dismissAction)
-        self.present(alert, animated: true, completion: nil)
-    }
-  }
     
     @IBAction func signOut(_ sender: UIBarButtonItem) {
         let firebaseAuth = FIRAuth.auth()
@@ -295,6 +182,7 @@ extension FCViewController: UITableViewDataSource, UITableViewDelegate{
         
         let message = messageSnapshot.value as! Dictionary<String, String>
         let name = message[Constants.MessageFields.name] as String!
+        let text = message[Constants.MessageFields.text] as String!
         
         if let imageUrl = message[Constants.MessageFields.imageUrl] {
             if imageUrl.hasPrefix("gs://") {
@@ -310,7 +198,7 @@ extension FCViewController: UITableViewDataSource, UITableViewDelegate{
             }
             cell!.textLabel?.text = "sent by: \(name)"
         } else {
-            let text = message[Constants.MessageFields.text] as String!
+            
             cell!.textLabel?.text = name! + ": " + text!
             cell!.imageView?.image = UIImage(named: "ic_account_circle")
             if let photoUrl = message[Constants.MessageFields.photoUrl], let url = NSURL(string:photoUrl), let data = NSData(contentsOf: url as URL) {
@@ -323,5 +211,55 @@ extension FCViewController: UITableViewDataSource, UITableViewDelegate{
         
         return cell!
     }
+
+}
+
+extension FCViewController:UIImagePickerControllerDelegate{
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String : Any]) {
+        let picker = UIImagePickerController()
+        picker.delegate = self
+        picker.dismiss(animated: true, completion:nil)
+        
+        // if it's a photo from the library, not an image from the camera
+        if #available(iOS 8.0, *), let referenceUrl = info[UIImagePickerControllerReferenceURL] {
+            let assets = PHAsset.fetchAssets(withALAssetURLs: [(referenceUrl as! NSURL) as URL], options: nil)
+            let asset = assets.firstObject
+            asset?.requestContentEditingInput(with: nil, completionHandler: { (contentEditingInput, info) in
+                let imageFile = contentEditingInput?.fullSizeImageURL
+                let filePath = "\(FIRAuth.auth()?.currentUser?.uid)/\(Int(NSDate.timeIntervalSinceReferenceDate * 1000))/\((referenceUrl as AnyObject).lastPathComponent!)"
+                self.storageRef.child(filePath)
+                    .putFile(imageFile!, metadata: nil) { (metadata, error) in
+                        if let error = error {
+                            print("Error uploading: \(error.localizedDescription)")
+                            return
+                        }
+                        self.sendMessage([Constants.MessageFields.imageUrl: self.storageRef.child((metadata?.path)!).description])
+                }
+            })
+        } else {
+            let image = info[UIImagePickerControllerOriginalImage] as! UIImage
+            let imageData = UIImageJPEGRepresentation(image, 0.8)
+            let imagePath = FIRAuth.auth()!.currentUser!.uid +
+            "/\(Int(NSDate.timeIntervalSinceReferenceDate * 1000)).jpg"
+            let metadata = FIRStorageMetadata()
+            metadata.contentType = "image/jpeg"
+            self.storageRef.child(imagePath)
+                .put(imageData!, metadata: metadata) { (metadata, error) in
+                    if let error = error {
+                        print("Error uploading: \(error)")
+                        return
+                    }
+                    self.sendMessage([Constants.MessageFields.imageUrl: self.storageRef.child((metadata?.path)!).description])
+            }
+        }
+    }
+    
+    
+    
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true, completion:nil)
+    }
+
 
 }
