@@ -6,8 +6,8 @@ import UIKit
 import Firebase
 
 
-@objc(FCViewController)
-class FCViewController: UIViewController,
+
+class ChatViewController: UIViewController,
     UITextFieldDelegate, UINavigationControllerDelegate {
 
   // Instance variables
@@ -19,7 +19,7 @@ class FCViewController: UIViewController,
   var messages: [FIRDataSnapshot]! = []
   var msglength: NSNumber = 150
   fileprivate var _refHandle: FIRDatabaseHandle!
-
+var currentUser:User!
   var storageRef: FIRStorageReference!
   var remoteConfig: FIRRemoteConfig!
 
@@ -28,6 +28,13 @@ class FCViewController: UIViewController,
 
   override func viewDidLoad() {
     super.viewDidLoad()
+    
+    spinner.hidesWhenStopped = true
+    spinner.center = view.center
+    
+    clientTable.addSubview(spinner)
+    spinner.startAnimating()
+    
 
     self.clientTable.register(UITableViewCell.self, forCellReuseIdentifier: "tableViewCell")
 
@@ -35,19 +42,23 @@ class FCViewController: UIViewController,
     configureStorage()
     configureRemoteConfig()
     textField.delegate = self
-    tableView.delegate = self
+    clientTable.delegate = self
+    
+    
     
     //rotate the tableView upside down so that messages appear from bottom-top, not top-bottom
-    tableView.transform = CGAffineTransform(rotationAngle: CGFloat(-M_PI))
+    clientTable.transform = CGAffineTransform(rotationAngle: CGFloat(-M_PI))
     
     //makes it so that row height is dynamic for each cell, which wraps around the text.
-    tableView.rowHeight = UITableViewAutomaticDimension
-    tableView.estimatedRowHeight = 60
+    clientTable.rowHeight = UITableViewAutomaticDimension
+    clientTable.estimatedRowHeight = 60
     
     // for tapping
-    self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(FCViewController.dismissKeyboard)))
+    self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(ChatViewController.dismissKeyboard)))
     
   }
+    
+    
     
     func dismiss() {
         self.dismiss(animated: true, completion: nil)
@@ -79,6 +90,11 @@ class FCViewController: UIViewController,
             let row = [IndexPath(row: self.messages.count-1, section: 0) ]
             
             self.clientTable.insertRows(at: row, with: .automatic)
+            
+            DispatchQueue.main.async {
+                self.clientTable.reloadData()
+                self.spinner.stopAnimating()
+            }
         })
     
     }
@@ -117,14 +133,53 @@ class FCViewController: UIViewController,
     sendMessage(data)
     
     DispatchQueue.main.async {
-        self.tableView.reloadData()
+        self.clientTable.reloadData()
     }
     return true
   }
     
+    func getCurrentTime() -> String{
+    
+        let date = Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .short
+        dateFormatter.timeStyle = .short
+        dateFormatter.locale = Locale.current
+       
+        
+      return dateFormatter.string(from: date )
+     
+    }
+    
+    func setCurrentuser(data:[String:AnyObject]){
+        
+//        let currentUser = self.ref.child("users/\(FIRAuth.auth()?.currentUser!.uid)").observe(.value, with: { (snapshot) in
+//            let data = snapshot.value as! [String:AnyObject]
+//            //                set current user data to use throughout chat session
+//            let firstname = data[Constants.UserFields.firstname] as! String
+//            let lastname = data[Constants.UserFields.lastname] as! String
+//            let company = data[Constants.UserFields.company] as! String
+//            let role = data[Constants.UserFields.role] as! String
+//            let email = data[Constants.UserFields.email] as! String
+//            
+//            self.currentUser = User(firstname: firstname , lastname: lastname, company: company, email: email, role: role)
+//            
+//        })
+//        
+//        
+        
+    }
+
+    
   func sendMessage(_ data: [String: String]) {
+    
+   
+    
+    
     var mdata = data
     mdata[Constants.MessageFields.name] = AppState.sharedInstance.displayName
+    mdata[Constants.MessageFields.uid] = FIRAuth.auth()?.currentUser?.uid
+    mdata[Constants.MessageFields.date] = getCurrentTime()
     if let photoUrl = AppState.sharedInstance.photoUrl {
         mdata[Constants.MessageFields.photoUrl] = photoUrl.absoluteString
     }
@@ -163,7 +218,7 @@ class FCViewController: UIViewController,
 
 }
 
-extension FCViewController: UITableViewDataSource, UITableViewDelegate{
+extension ChatViewController: UITableViewDataSource, UITableViewDelegate{
     
     // UITableViewDataSource protocol methods
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -172,10 +227,14 @@ extension FCViewController: UITableViewDataSource, UITableViewDelegate{
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         // Dequeue cell
-        let cell: UITableViewCell! = self.clientTable .dequeueReusableCell(withIdentifier: "tableViewCell", for: indexPath)
+        let cell: MessageViewCell = self.clientTable.dequeueReusableCell(withIdentifier: "ClientCell", for: indexPath) as! MessageViewCell
         
-        cell.textLabel?.numberOfLines=0
-        cell.textLabel?.lineBreakMode = NSLineBreakMode.byWordWrapping
+        
+        
+        
+        cell.messageLabel?.numberOfLines = 0
+        cell.firstnameLabel?.numberOfLines = 0
+        cell.messageLabel?.lineBreakMode = NSLineBreakMode.byWordWrapping
         
         // Reverse unpack message from Firebase DataSnapshot
         let messageSnapshot: FIRDataSnapshot! = self.messages[messages.count - 1 - indexPath.row]
@@ -184,37 +243,41 @@ extension FCViewController: UITableViewDataSource, UITableViewDelegate{
         let name = message[Constants.MessageFields.name] as String!
         let text = message[Constants.MessageFields.text] as String!
         
-        if let imageUrl = message[Constants.MessageFields.imageUrl] {
-            if imageUrl.hasPrefix("gs://") {
-                FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
-                    if let error = error {
-                        print("Error downloading: \(error)")
-                        return
-                    }
-                    cell.imageView?.image = UIImage.init(data: data!)
-                }
-            } else if let url = NSURL(string:imageUrl), let data = NSData(contentsOf: url as URL) {
-                cell.imageView?.image = UIImage.init(data: data as Data)
-            }
-            cell!.textLabel?.text = "sent by: \(name)"
-        } else {
-            
-            cell!.textLabel?.text = name! + ": " + text!
-            cell!.imageView?.image = UIImage(named: "ic_account_circle")
-            if let photoUrl = message[Constants.MessageFields.photoUrl], let url = NSURL(string:photoUrl), let data = NSData(contentsOf: url as URL) {
-                cell!.imageView?.image = UIImage(data: data as Data)
-            }
-        }
+        
+        
+        cell.firstnameLabel?.text = name
+        cell.messageLabel?.text = text!
+        cell.profilePic?.image = UIImage(named: "ic_account_circle")
+        
+//        if let imageUrl = message[Constants.MessageFields.imageUrl] {
+//            if imageUrl.hasPrefix("gs://") {
+//                FIRStorage.storage().reference(forURL: imageUrl).data(withMaxSize: INT64_MAX){ (data, error) in
+//                    if let error = error {
+//                        print("Error downloading: \(error)")
+//                        return
+//                    }
+//                    cell.imageView?.image = UIImage.init(data: data!)
+//                }
+//            } else if let url = NSURL(string:imageUrl), let data = NSData(contentsOf: url as URL) {
+//                cell.imageView?.image = UIImage.init(data: data as Data)
+//            }
+//           
+//        } else {
+//    
+//            if let photoUrl = message[Constants.MessageFields.photoUrl], let url = NSURL(string:photoUrl), let data = NSData(contentsOf: url as URL) {
+//                cell.profilePic?.image = UIImage(data: data as Data)
+//            }
+//        }
         
         //since tableView is rotated, cell has to be rotated to be upright.
         cell.transform = CGAffineTransform(rotationAngle: CGFloat(M_PI))
         
-        return cell!
+        return cell
     }
 
 }
 
-extension FCViewController:UIImagePickerControllerDelegate{
+extension ChatViewController:UIImagePickerControllerDelegate{
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String : Any]) {
         let picker = UIImagePickerController()

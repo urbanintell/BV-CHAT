@@ -8,26 +8,20 @@ class SignInViewController: UIViewController {
 
   @IBOutlet weak var emailField: UITextField!
   @IBOutlet weak var passwordField: UITextField!
+    var currentUser:User!
+    
+    var userReference:FIRDatabaseReference!
     
     @IBOutlet weak var logo: UIImageView!
-    
-    
-    
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.logo.alpha = 0.0
-        UIView.animate(withDuration: 1.0, delay: 0.0, options: UIViewAnimationOptions.curveEaseOut, animations: {
-            self.logo.alpha = 0.0
-            }, completion: {
-                (finished: Bool) -> Void in
-                
-                
-                
-                // Fade in
-                UIView.animate(withDuration: 1.0, delay: 0.0, options: UIViewAnimationOptions.curveEaseIn, animations: {
-                    self.logo.alpha = 1.0
-                    }, completion: nil)
-        })
+        
+        configureDatabase()
+//        userReference.query
+        
+        emailField.becomeFirstResponder()
+       
+
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -38,8 +32,8 @@ class SignInViewController: UIViewController {
     
     @IBAction func didTapSignIn(sender: AnyObject) {
         // Sign In with credentials.
-        var email = emailField.text
-        var password = passwordField.text
+        let email = emailField.text
+        let password = passwordField.text
         
         let alert = UIAlertController(title: "Login Error", message: "Something went wrong", preferredStyle: .alert)
         
@@ -63,8 +57,29 @@ class SignInViewController: UIViewController {
             }
             
             
+            let currentUser = self.userReference.child("users/\(user!.uid)").observe(.value, with: { (snapshot) in
+                let data = snapshot.value as! [String:AnyObject]
+//                set current user data to use throughout chat session
+                self.setCurrentuser(data:data)
+                
+            })
+            
+            print(currentUser)
+//            setCurrentuser(currentUser: )
+            
+            
             self.signedIn(user: user!)
         }
+    }
+    
+    
+    func setCurrentuser(data:[String:AnyObject]){
+        let firstname = data[Constants.UserFields.firstname] as! String
+        let lastname = data[Constants.UserFields.lastname] as! String
+        let company = data[Constants.UserFields.company] as! String
+        let role = data[Constants.UserFields.role] as! String
+        let email = data[Constants.UserFields.email] as! String
+        currentUser = User(firstname: firstname , lastname: lastname, company: company, email: email, role: role)
     }
 
     
@@ -99,7 +114,10 @@ class SignInViewController: UIViewController {
         present(prompt, animated: true, completion: nil);
     }
     
-    
+    func configureDatabase(){
+        
+        self.userReference = FIRDatabase.database().reference()
+    }
     
     func signedIn(user: FIRUser?) {
         MeasurementHelper.sendLoginEvent()
